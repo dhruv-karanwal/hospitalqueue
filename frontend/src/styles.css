@@ -173,7 +173,8 @@ td.best { font-weight: 700; background: var(--ok-soft); }
 .seg-block[data-p='5'] { background: var(--p5); }
 .seg-block.switch { background: repeating-linear-gradient(135deg, var(--switch) 0 3px, transparent 3px 6px); color: var(--ink); border: 1px solid var(--switch); }
 .seg-block.device { background: var(--sunken); color: var(--ink); border: 1px dashed var(--ink-2); }
-.seg-block .mark { position: absolute; right: 2px; top: 0; font-size: 11px; }
+.seg-block.has-mark { padding-right: 15px; text-overflow: clip; }
+.seg-block .mark { position: absolute; right: 4px; top: 0; font-size: 11px; }
 .seg-block.cut-preempted, .seg-block.cut-quantum { box-shadow: inset -3px 0 0 var(--ink); }
 .board-axis { display: grid; grid-template-columns: 72px 1fr; height: 24px; font-size: 11px; color: var(--ink-2); }
 .board-axis .ticks { position: relative; }
@@ -184,7 +185,7 @@ td.best { font-weight: 700; background: var(--ok-soft); }
 
 /* ---------- clock ---------- */
 .clock { display: flex; align-items: baseline; gap: var(--space-2); }
-.clock-value { font-size: 3rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -0.02em; min-width: 3ch; }
+.clock-value { font-size: 3rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -0.02em; }
 .clock-unit { color: var(--ink-2); }
 .topclock { font-variant-numeric: tabular-nums; font-weight: 700; }
 

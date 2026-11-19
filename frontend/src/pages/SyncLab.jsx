@@ -116,7 +116,7 @@ function ProducerConsumer() {
       {data && f && (
         <>
           <Panel title={`Minute ${f.t}`}>
-            <PlayerControls p={p} length={frames.length} label="Minute" />
+            <PlayerControls p={p} length={frames.length} label="Step" />
             <div className="grid grid-2" style={{ marginTop: 16 }} aria-live="polite">
               <div>
                 <h3>Waiting area ({f.buffer.length} of {data.capacity} chairs taken)</h3>

@@ -33,13 +33,15 @@ function Gantt({ segments, rows, deviceSegments = [], playhead, label = 'Schedul
             ? `${s.patient} at ${s.device}, minutes ${s.start} to ${s.end}`
             : sw ? `context switch to ${s.patient}, minutes ${s.start} to ${s.end}`
               : `${s.patient} priority ${s.priority}, minutes ${s.start} to ${s.end}${s.end_reason && !s.partial ? `, ${CUT_TEXT[s.end_reason] || s.end_reason}` : ''}`;
+          // The mark glyph needs its own room; on narrow blocks the dark right edge alone shows the cut.
+          const mark = !s.partial && !device && MARK[s.end_reason] && w >= 44 ? MARK[s.end_reason] : null;
           return (
             <div key={i} role="listitem" aria-label={desc} title={desc}
-              className={`seg-block${sw ? ' switch' : ''}${device ? ' device' : ''}${s.end_reason && !s.partial ? ` cut-${s.end_reason}` : ''}`}
+              className={`seg-block${sw ? ' switch' : ''}${device ? ' device' : ''}${s.end_reason && !s.partial ? ` cut-${s.end_reason}` : ''}${mark ? ' has-mark' : ''}`}
               data-p={device || sw ? undefined : s.priority}
               style={{ left: s.start * pxPer, width: Math.max(2, w - 1) }}>
-              {w >= 22 ? s.patient : ''}
-              {!s.partial && MARK[s.end_reason] && !device && <span className="mark" aria-hidden="true">{MARK[s.end_reason]}</span>}
+              {w >= 24 ? s.patient : ''}
+              {mark && <span className="mark" aria-hidden="true">{mark}</span>}
             </div>
           );
         })}
@@ -71,7 +73,7 @@ export function GanttLegend({ showDevices }) {
       {[1, 2, 3, 4, 5].map((p) => <span key={p} className="tag tag-prio" data-p={p}>P{p}</span>)}
       <span>Colour and label = triage priority</span>
       <span><span className="swatch-switch" /> context switch</span>
-      <span>⚡ preempted</span><span>↻ quantum expired</span><span>⧗ sent for I/O</span>
+      <span>⚡ preempted</span><span>↻ quantum expired</span><span>⧗ sent for I/O</span><span>dark right edge = cut short</span>
       {showDevices && <span>dashed = device in use</span>}
     </div>
   );
