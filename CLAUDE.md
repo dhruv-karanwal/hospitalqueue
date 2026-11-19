@@ -1,67 +1,80 @@
-# CLAUDE.md — MediQueue OS
+# CLAUDE.md: MediQueue OS
 
 ## Purpose
 Hospital queue scheduling simulator for an Operating Systems course. Patients = processes,
-doctors/counters = CPUs, lab/X-ray = I/O devices, beds/ambulances = resources. Main focus:
-comparing scheduling policies and fairness (starvation vs aging). **This is a simulation for
-evaluating queue policies, not a clinical system; priority levels are human inputs.**
+doctors/counters = CPUs, lab/X-ray/pharmacy = I/O devices, beds/ambulances/lab devices = Banker's resources.
+Focus: comparing scheduling policies and fairness (starvation vs aging), explainable in a viva.
+**A simulation for evaluating queue policies, not a clinical system; priority levels are human inputs.**
 
 ## Architecture
-- `backend/` FastAPI + Pydantic, bound to **127.0.0.1:8000** only. Routes in `app/main.py` are thin;
-  all logic is in `app/engine/` as **pure functions** (data in -> data out, no global state, no I/O).
-- SQLite (stdlib `sqlite3`) in `app/db.py` for saved scenarios and run history (milestone 9).
-- `frontend/` React 18 + Vite on **127.0.0.1:5173**; Vite proxies `/api` to the backend.
-  All HTTP goes through `src/lib/api.js` (uniform `ApiError`).
-- Deterministic integer simulated clock: same input -> byte-identical output.
+- `backend/`: FastAPI + Pydantic on **127.0.0.1:8000** only. Routes in `app/main.py` are thin: validate, call engine, return.
+  All logic is in `app/engine/` as **pure code** (data in, data out; no globals, no I/O).
+- SQLite (stdlib `sqlite3`) in `app/db.py`: saved scenarios and run history. Path override: `MEDIQUEUE_DB`.
+- Live sessions: in-memory `Simulation` objects in `main._sessions` (max 32, per-session lock).
+- `frontend/`: React 18 + Vite on **127.0.0.1:5173**; Vite proxies `/api`. Hash router, every page `React.lazy`.
+  Shared workload and last result in `src/store.jsx` (persisted to localStorage, debounced).
+- Deterministic integer clock. Step order inside a minute is fixed (see docs/ARCHITECTURE.md). Ties: arrival, then input order.
 
 ## Folder map
 ```
-backend/app/main.py        routes, API_HOST/API_PORT, uvicorn entry (python -m app.main)
-backend/app/models.py      Pydantic request/response models
-backend/app/db.py          SQLite persistence
-backend/app/engine/        simulation core, schedulers, resources, sync, trace (pure)
-backend/tests/             pytest (conftest adds backend/ to sys.path)
-frontend/src/lib/          client helpers (api.js), unit-tested with Vitest
-frontend/src/test/         Vitest tests
-docs/                      TESTING.md (+ ARCHITECTURE, CONCEPTS, VIVA, LIMITATIONS, DEMO later)
-Makefile                   setup / backend / frontend / test / build
+backend/app/main.py            routes, sessions, API_HOST/API_PORT, `python -m app.main`
+backend/app/models.py          Pydantic models (extra=forbid, bounds, cross-field validators)
+backend/app/db.py              sqlite3 persistence
+backend/app/engine/pcb.py      PCB, states, TRANSITIONS, check_transition
+backend/app/engine/queues.py   ReadyQueue (heap + lazy deletion)
+backend/app/engine/simulator.py Simulation (step/run/advance/snapshot/check_invariants), SimConfig, simulate()
+backend/app/engine/metrics.py  patient_row, aggregate, best_per_metric
+backend/app/engine/analysis.py compare, aging_demo, queue_mode_compare, io_report
+backend/app/engine/resources.py Banker's safety/request, detect_deadlock
+backend/app/engine/sync.py     Mutex, Semaphore, race_demo, producer_consumer
+backend/app/engine/scenarios.py 6 presets (fixed-seed LCG), BANKER_AMBULANCE
+backend/app/engine/trace.py    Trace, filter_events
+backend/tests/                 pytest; helpers.py; conftest sets a temp MEDIQUEUE_DB + `client` fixture
+frontend/src/App.jsx           shell, nav, lazy routes, focus management
+frontend/src/store.jsx         WorkloadProvider / useWorkload
+frontend/src/pages/            Dashboard Simulator Timeline Compare Aging MultiDoctor Resources SyncLab Trace Concepts
+frontend/src/components/       ui.jsx, Gantt.jsx (ward board), BarChart.jsx, VirtualList.jsx, Matrix.jsx, ScenarioPicker.jsx, ParamControls.jsx
+frontend/src/lib/              api.js, workload.js, metrics.js, gantt.js, trace.js, virtual.js, hooks.js, nav.js, concepts.js
+frontend/src/test/             vitest (pure helpers)
+frontend/tests/e2e/smoke.cjs   Playwright smoke (system playwright package)
+scripts/e2e.sh                 starts both servers, runs smoke, stops them
+scripts/gen-viva.mjs           writes docs/VIVA.md from src/lib/concepts.js
+docs/                          ARCHITECTURE, CONCEPTS, VIVA, LIMITATIONS, DEMO, TESTING
 ```
 
 ## Commands
-- `make setup` — create venv (python3.11) and install npm deps
-- `make backend` — run API on 127.0.0.1:8000
-- `make frontend` — run UI on 127.0.0.1:5173
-- `make test` — backend pytest + frontend vitest + production build
-- Single suites: `make test-backend`, `make test-frontend`, `make build`
+- `make setup`: venv (python3.11) + npm install
+- `make backend` / `make frontend`: run API / UI
+- `make test`: pytest + vitest + build · `make bench` · `make e2e` · `make check` (all)
+- `make viva`: regenerate docs/VIVA.md after editing `frontend/src/lib/concepts.js`
 
 ## Conventions
-- Tests first for each milestone; textbook examples with hand-calculated answers for schedulers.
-- Engine never imports FastAPI/sqlite; routes never contain scheduling logic.
-- Validate all input with Pydantic bounds. No shell execution anywhere. No external services.
-- Pinned frontend deps; keep dependencies minimal (React, ReactDOM, Vite, Vitest only so far).
-- Accessibility: labels, keyboard, contrast; color never the only carrier of meaning.
-- Commit after each green milestone; update this file and docs/TESTING.md each time.
+- Tests first; schedulers checked against hand-calculated textbook answers; property tests run with `check_invariants=True`.
+- Engine never imports FastAPI or sqlite. Routes contain no scheduling logic. No shell execution anywhere.
+- Every state change goes through `Simulation._set_state` (validates, does accounting, enqueues, traces).
+- New trace event types must be added to `frontend/src/lib/trace.js` TYPE_LABELS.
+- UI: tokens in `styles.css`; triage colours `--p1..--p5` always paired with a "P#" text label; sentence case;
+  labels on every control (the e2e test checks this); no new dependencies without need.
+- Update this file, docs/TESTING.md (real numbers) and docs/CONCEPTS.md when behaviour changes.
 
 ## Current status
-- [x] M1 Scaffold, health check, test setup (backend 3 tests, frontend 4 tests, build OK, UI verified in Chromium)
-- [ ] M2 Engine core (PCB, clock, state machine, trace, metrics)
-- [ ] M3 Schedulers FCFS/SJF/SRTF/Priority/RR
-- [ ] M4 Aging, starvation, context-switch cost
-- [ ] M5 Multi-doctor (global vs per-doctor queues)
-- [ ] M6 I/O blocking and interrupts
-- [ ] M7 Banker's safety + deadlock detection
-- [ ] M8 Sync: race demo, mutex/semaphore, producer-consumer
-- [ ] M9 API layer, SQLite, scenarios
-- [ ] M10 Frontend: design system, Simulator, Timeline, Compare
-- [ ] M11 Frontend: Aging Lab, Multi-doctor, I/O & Resources, Sync Lab, Trace, Concepts/Viva
-- [ ] M12 Live session mode
-- [ ] M13 Benchmark (500 patients < 200 ms), a11y pass
-- [ ] M14 Docs, demo script
+All 14 milestones done (built in one pass at the user's request). Latest: backend 165 passed, frontend 21 passed,
+build OK (52 kB gzip main chunk), e2e 14/14, 500-patient benchmark 8 to 16 ms per policy. UI verified in Chromium
+(light, dark, 390 px phone): no console errors, no horizontal scroll.
 
 ## Decisions
-- D1: Project lives in GitHub repo `dhruv-karanwal/hospitalqueue`; work on branch `claude/gifted-albattani-1kyqjf`.
-- D2: Python 3.11 venv at `backend/.venv` (system default is 3.13; 3.11 matches the stated minimum).
-- D3: Plain CSS with design tokens (CSS custom properties) instead of Tailwind — fewer deps, smaller bundle.
-- D4: The `ui-ux-pro-max` skill is **not installed** in this environment; UI work uses the installed
-  `frontend-design` skill plus a token-based accessible design system.
-- D5: Vite dev proxy for `/api` so the browser is same-origin; CORS allowlist only covers 127.0.0.1/localhost:5173.
+- D1: Repo `dhruv-karanwal/hospitalqueue`, branch `claude/gifted-albattani-1kyqjf`.
+- D2: Python 3.11 venv at `backend/.venv`.
+- D3: Plain CSS with design tokens, no Tailwind; hand-written SVG/CSS charts, no Recharts (smaller bundle).
+- D4: The `ui-ux-pro-max` skill is not installed here; UI followed the `frontend-design` skill. Identity: Manchester-triage
+  colours for priority, ink navy plus chart-paper surfaces, scrub teal for actions, self-hosted Atkinson Hyperlegible font.
+- D5: Waiting = turnaround - burst - blocked (I/O time excluded; switch overhead included). Starvation uses READY time.
+- D6: A context switch is counted when a doctor starts a patient other than the one it last ran (first patient is free).
+  Switch cost is non-preemptible overhead before the patient's first minute.
+- D7: Aging uses per-patient timers (no per-minute scans); boosts persist until completion. Priority + Aging is preemptive.
+- D8: RR: new arrivals at minute t join the queue before a patient whose quantum expired at t. Quantum renews if nobody waits.
+- D9: Per-doctor mode = join the shortest line by head count at arrival, stay there (affinity), return there after I/O.
+- D10: Live `advance()` always ticks the clock (an empty ward still has time); batch `run()` skips idle gaps.
+- D11: Race demo uses deterministic one-instruction round-robin interleaving (worst case) so the bug is reproducible.
+- D12: Govt preset tuned (long jobs at positions 0, 4, 8, one arrival per minute) because shortest-line-by-count can match
+  a common queue on some workloads; documented in LIMITATIONS.

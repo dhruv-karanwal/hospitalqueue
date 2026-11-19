@@ -3,7 +3,7 @@ PY ?= python3.11
 VENV := backend/.venv
 VPY := $(VENV)/bin/python
 
-.PHONY: setup backend frontend test test-backend test-frontend build clean
+.PHONY: setup backend frontend test test-backend test-frontend build bench e2e check viva clean
 
 setup: $(VENV)/.installed frontend/node_modules
 
@@ -32,6 +32,17 @@ test-frontend: frontend/node_modules
 
 build: frontend/node_modules
 	cd frontend && npm run build
+
+bench: $(VENV)/.installed          ## 500-patient benchmark with timings
+	cd backend && .venv/bin/python -m pytest tests/test_benchmark.py -s
+
+e2e: setup                         ## Playwright smoke test (starts both servers)
+	./scripts/e2e.sh
+
+check: test e2e                    ## everything
+
+viva:                              ## regenerate docs/VIVA.md from the Concepts page content
+	node scripts/gen-viva.mjs
 
 clean:
 	rm -rf frontend/dist backend/.pytest_cache
