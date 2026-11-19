@@ -68,5 +68,7 @@ Latest real results: [docs/TESTING.md](docs/TESTING.md).
 10. Concepts and viva
 
 ## Docs
+**Full project report with screenshots:** [docs/MediQueue-OS-Report.pdf](docs/MediQueue-OS-Report.pdf)
+
 [Architecture](docs/ARCHITECTURE.md) · [Concepts](docs/CONCEPTS.md) · [Viva Q&A](docs/VIVA.md) ·
 [Limitations](docs/LIMITATIONS.md) · [5-minute demo](docs/DEMO.md) · [Testing](docs/TESTING.md)
