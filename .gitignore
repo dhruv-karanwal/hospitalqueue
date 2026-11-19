@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+backend/data/*.sqlite3*
+node_modules/
+dist/
+test-results/
+playwright-report/
+.DS_Store
+.vscode/
+.idea/
